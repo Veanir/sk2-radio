@@ -3,17 +3,14 @@
 AudioFile::AudioFile(const char *filename)
 {
     this->m_handle = mpg123_new(NULL, NULL);
-    if (mpg123_open(this->m_handle, filename) != MPG123_OK)
-    {
-        std::cout << "Failed to open file" << std::endl;
-        return;
-    }
+    mpg123_open(this->m_handle, filename);
 
     mpg123_getformat(this->m_handle, &this->m_rate, &this->m_channels, &this->m_encoding);
 
     this->m_size = mpg123_outblock(this->m_handle);
 
-    std::cout << "AudioFile m_size -> " << this->m_size << std::endl;
+    this->blocks_count = 0;
+    this->position = 0;
 
     while (true)
     {
@@ -21,7 +18,11 @@ AudioFile::AudioFile(const char *filename)
         size_t done;
         if (mpg123_read(this->m_handle, data, this->m_size, &done) == MPG123_OK)
         {
-            this->m_blocks.push_back(std::unique_ptr<AudioBlock>(new AudioBlock(data, done)));
+            size_t samples = done / (this->m_channels * mpg123_encsize(this->m_encoding));
+            double duration = (double)samples / (double)this->m_rate;
+            this->m_blocks.push_back(std::shared_ptr<AudioBlock>(new AudioBlock(data, done, duration)));
+
+            this->blocks_count++;
         }
         else
         {
@@ -36,17 +37,26 @@ AudioFile::~AudioFile()
     mpg123_close(this->m_handle);
 }
 
-std::vector<std::unique_ptr<AudioBlock>> AudioFile::fetchAudio()
+std::vector<std::shared_ptr<AudioBlock>> AudioFile::fetchAudioBlocks()
 {
-    std::vector<std::unique_ptr<AudioBlock>> blocks;
+    std::vector<std::shared_ptr<AudioBlock>> blocks;
     blocks.swap(this->m_blocks);
     return blocks;
 }
 
-AudioBlock::AudioBlock(unsigned char *data, size_t size)
+std::shared_ptr<AudioBlock> AudioFile::fetchNextAudioBlock()
+{
+    if (this->position < this->blocks_count)
+        return this->m_blocks[this->position++];
+    else
+        return NULL;
+}
+
+AudioBlock::AudioBlock(unsigned char *data, size_t size, double duration)
 {
     this->data = data;
     this->size = size;
+    this->duration = duration;
 }
 
 AudioBlock::~AudioBlock()

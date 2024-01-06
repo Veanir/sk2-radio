@@ -1,3 +1,5 @@
+#pragma once
+
 #include <mpg123.h>
 #include <memory>
 #include <vector>
@@ -6,11 +8,12 @@
 class AudioBlock
 {
 public:
-    AudioBlock(unsigned char *data, size_t size);
+    AudioBlock(unsigned char *data, size_t size, double duration);
     ~AudioBlock();
 
     unsigned char *data;
     size_t size;
+    double duration;
 };
 
 class AudioFile
@@ -18,7 +21,9 @@ class AudioFile
 public:
     AudioFile(const char *filename);
     ~AudioFile();
-    std::vector<std::unique_ptr<AudioBlock>> fetchAudio();
+    std::vector<std::shared_ptr<AudioBlock>> fetchAudioBlocks();
+    std::shared_ptr<AudioBlock> fetchNextAudioBlock();
+    void rewind();
 
 private:
     mpg123_handle *m_handle;
@@ -26,5 +31,8 @@ private:
     long m_rate;
     int m_channels, m_encoding;
 
-    std::vector<std::unique_ptr<AudioBlock>> m_blocks;
+    size_t blocks_count;
+    size_t position;
+
+    std::vector<std::shared_ptr<AudioBlock>> m_blocks;
 };

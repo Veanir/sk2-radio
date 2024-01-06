@@ -1,5 +1,6 @@
 #include <mpg123.h>
 #include "audio_file.h"
+#include "audio_queue.h"
 #include <memory>
 #include <vector>
 
@@ -8,11 +9,16 @@
 int main()
 {
     mpg123_init();
+
     AudioFile file("./Guy.mp3");
-    std::vector<std::unique_ptr<AudioBlock>> blocks = file.fetchAudio();
-    for (auto &block : blocks)
+
+    std::shared_ptr<AudioQueueRwLock> queue = std::make_shared<AudioQueueRwLock>();
+
+    while (true)
     {
-        std::cout << block->size << std::endl;
+        queue->lock_write();
+        queue->get_queue().update();
+        queue->unlock_write();
     }
 
     return 0;
