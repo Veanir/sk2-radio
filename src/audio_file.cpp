@@ -11,6 +11,7 @@ AudioFile::AudioFile(const char *filename)
 
     this->blocks_count = 0;
     this->position = 0;
+    this->m_filename = filename;
 
     while (true)
     {

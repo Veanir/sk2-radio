@@ -1,8 +1,8 @@
 # Libraries
-LIBS = -lmpg123
+LIBS = -lmpg123 -L./llhttp/build -l:libllhttp.a
 
 # Source files
-SRCS = src/audio_file.cpp src/radio_server.cpp
+SRCS = src/audio_queue.cpp src/audio_file.cpp src/radio_server.cpp
 
 # Object files
 OBJS = $(SRCS:src/%.cpp=obj/%.o)

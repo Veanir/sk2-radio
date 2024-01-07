@@ -23,9 +23,11 @@ public:
     ~AudioFile();
     std::vector<std::shared_ptr<AudioBlock>> fetchAudioBlocks();
     std::shared_ptr<AudioBlock> fetchNextAudioBlock();
+    std::string get_filename() { return this->m_filename; }
     void rewind();
 
 private:
+    const char *m_filename;
     mpg123_handle *m_handle;
     size_t m_size;
     long m_rate;

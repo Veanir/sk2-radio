@@ -1,4 +1,6 @@
+#pragma once
 #include "audio_queue.h"
+#include "server_node.h"
 
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -16,16 +18,17 @@ typedef struct sockaddr_in sockaddr_in;
 class ServerMaster
 {
 public:
-    ServerMaster(int port);
+    ServerMaster(int port, std::shared_ptr<AudioQueueRwLock> queue);
 
     void start_listening();
 
 private:
+    std::shared_ptr<AudioQueueRwLock> queue;
     sockaddr_in addr;
     int socket_fd;
 };
 
-ServerMaster::ServerMaster(int port)
+ServerMaster::ServerMaster(int port, std::shared_ptr<AudioQueueRwLock> queue) : queue(queue)
 {
     this->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (this->socket_fd == -1)
@@ -60,25 +63,10 @@ void ServerMaster::start_listening()
 
         std::cout << "Accepted connection from " << inet_ntoa(client_addr.sin_addr) << ":" << ntohs(client_addr.sin_port) << std::endl;
 
-        std::thread([client_fd]()
-                    {
-            char buffer[1024];
-            while (true)
-            {
-                memset(buffer, 0, 1024);
-                int bytes_read = read(client_fd, buffer, 1024);
-                if (bytes_read == -1)
-                    throw std::runtime_error("Failed to read from socket");
+        std::unique_ptr<ServerNode> node = std::unique_ptr<ServerNode>(new ServerNode(client_fd, this->queue));
 
-                if (bytes_read == 0)
-                    break;
-
-                std::cout << "Received " << bytes_read << " bytes" << std::endl;
-                std::cout << buffer << std::endl;
-            }
-
-            std::cout << "Closing connection" << std::endl;
-            close(client_fd); })
+        std::thread([node = std::move(node)]() mutable
+                    { node->start_listening(); })
             .detach();
     }
 }

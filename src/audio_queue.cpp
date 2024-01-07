@@ -11,25 +11,20 @@ AudioQueue::AudioQueue()
     this->audio_block_start_time = std::chrono::high_resolution_clock::now();
 }
 
-AudioQueue::~AudioQueue()
-{
-}
-
 void AudioQueue::push(std::shared_ptr<AudioFile> file)
 {
     this->audio_files.push_back(file);
 }
 
-void AudioQueue::subscribe(std::function<void(std::shared_ptr<AudioBlock>)> callback)
+void AudioQueue::subscribe(std::weak_ptr<IAudioListener> listener)
 {
-    this->callbacks.push_back(callback);
+    this->listeners.push_back(listener);
 }
 
 void AudioQueue::update()
 {
     auto now = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - this->audio_block_start_time).count();
-
     if (this->audio_files.size() > 0)
     {
         auto file = this->audio_files[0];
@@ -39,23 +34,60 @@ void AudioQueue::update()
         {
             if (duration >= block->duration * 1000)
             {
-                this->update_listeners(block);
+                this->update_listeners_audio(block);
                 this->audio_block_start_time = std::chrono::high_resolution_clock::now();
             }
         }
         else
         {
             this->audio_files.erase(this->audio_files.begin());
+            this->update_listeners_queue(this->get_queue());
         }
     }
 }
 
-void AudioQueue::update_listeners(std::shared_ptr<AudioBlock> block)
+void AudioQueue::update_listeners_audio(std::shared_ptr<AudioBlock> block)
 {
-    for (auto callback : this->callbacks)
+    for (auto it = this->listeners.begin(); it != this->listeners.end();)
     {
-        callback(block);
+        auto listener = it->lock();
+        if (listener)
+        {
+            listener->on_audio_block(block);
+            ++it;
+        }
+        else
+        {
+            it = this->listeners.erase(it);
+        }
     }
+}
+
+void AudioQueue::update_listeners_queue(std::vector<std::string> queue)
+{
+    for (auto it = this->listeners.begin(); it != this->listeners.end();)
+    {
+        auto listener = it->lock();
+        if (listener)
+        {
+            listener->on_queue_change(queue);
+            ++it;
+        }
+        else
+        {
+            it = this->listeners.erase(it);
+        }
+    }
+}
+
+std::vector<std::string> AudioQueue::get_queue()
+{
+    std::vector<std::string> queue;
+    for (auto file : this->audio_files)
+    {
+        queue.push_back(file->get_filename());
+    }
+    return queue;
 }
 
 void AudioQueueRwLock::lock_write()
