@@ -6,6 +6,7 @@
 #include <vector>
 #include <mutex>
 #include <condition_variable>
+#include <string>
 AudioQueue::AudioQueue()
 {
     this->audio_block_start_time = std::chrono::high_resolution_clock::now();
@@ -25,24 +26,32 @@ void AudioQueue::update()
 {
     auto now = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - this->audio_block_start_time).count();
-    if (this->audio_files.size() > 0)
+    if (this->audio_files.size() == 0)
     {
-        auto file = this->audio_files[0];
-        auto block = file->fetchNextAudioBlock();
+        return;
+    }
+    auto file = this->audio_files[0];
+    auto current_block = file->fetchCurrentAudioBlock();
+    if (current_block == nullptr)
+    {
+        this->audio_files.erase(this->audio_files.begin());
+        this->update_listeners_queue(this->queue_info());
+        return;
+    }
 
-        if (block != NULL)
-        {
-            if (duration >= block->duration * 1000)
-            {
-                this->update_listeners_audio(block);
-                this->audio_block_start_time = std::chrono::high_resolution_clock::now();
-            }
-        }
-        else
+    if (duration >= current_block->duration * 1000)
+    {
+        file->fetchNextAudioBlock();
+        auto block = file->fetchCurrentAudioBlock();
+        if (block == NULL)
         {
             this->audio_files.erase(this->audio_files.begin());
-            this->update_listeners_queue(this->get_queue());
+            this->update_listeners_queue(this->queue_info());
+            return;
         }
+
+        this->update_listeners_audio(block);
+        this->audio_block_start_time = std::chrono::high_resolution_clock::now();
     }
 }
 
@@ -63,7 +72,7 @@ void AudioQueue::update_listeners_audio(std::shared_ptr<AudioBlock> block)
     }
 }
 
-void AudioQueue::update_listeners_queue(std::vector<std::string> queue)
+void AudioQueue::update_listeners_queue(std::string queue)
 {
     for (auto it = this->listeners.begin(); it != this->listeners.end();)
     {
@@ -80,13 +89,28 @@ void AudioQueue::update_listeners_queue(std::vector<std::string> queue)
     }
 }
 
-std::vector<std::string> AudioQueue::get_queue()
+std::string AudioQueue::queue_info()
 {
-    std::vector<std::string> queue;
-    for (auto file : this->audio_files)
+    std::string queue;
+    queue += "{ \"queue\": [";
+
+    for (auto it = this->audio_files.begin(); it != this->audio_files.end(); ++it)
     {
-        queue.push_back(file->get_filename());
+        queue += "\"";
+        queue += (*it)->get_filename();
+        queue += "\"";
+        if (it != this->audio_files.end() - 1)
+            queue += ", ";
     }
+    queue += "], \"current\": { \"filename\": \"";
+    queue += this->audio_files[0]->get_filename();
+    queue += "\", \"sampling_rate\" : ";
+    queue += std::to_string(this->audio_files[0]->get_sampling_rate());
+    queue += ", \"channels\" : ";
+    queue += std::to_string(this->audio_files[0]->get_channels());
+    queue += ", \"encoding\" : ";
+    queue += std::to_string(this->audio_files[0]->get_encoding());
+    queue += " } }";
     return queue;
 }
 
@@ -103,6 +127,7 @@ void AudioQueueRwLock::unlock_write()
     std::unique_lock<std::mutex> lock(this->mutex);
     this->writer = false;
     this->read_condition.notify_all();
+    this->write_condition.notify_one();
 }
 
 void AudioQueueRwLock::lock_read()

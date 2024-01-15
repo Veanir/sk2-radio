@@ -13,7 +13,7 @@ int main()
 {
     mpg123_init();
 
-    AudioFile file("./Guy.mp3");
+    AudioFile file("/home/eryk_stec/Studia/Semestr-5/sieci-komputerowe-2/projekt-radio/server/Captain.mp3");
 
     std::shared_ptr<AudioQueueRwLock> queue = std::make_shared<AudioQueueRwLock>();
 

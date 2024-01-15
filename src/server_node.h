@@ -16,14 +16,14 @@
 #include <sstream>
 #include <string>
 
-class ServerNode : IAudioListener
+class ServerNode : public IAudioListener
 {
 public:
     ServerNode(int client_fd, std::shared_ptr<AudioQueueRwLock> queue);
     void start_listening();
 
     void on_audio_block(std::shared_ptr<AudioBlock> block) override;
-    void on_queue_change(std::vector<std::string>) override;
+    void on_queue_change(std::string) override;
 
 private:
     int client_fd;
@@ -52,13 +52,8 @@ ServerNode::ServerNode(int client_fd, std::shared_ptr<AudioQueueRwLock> queue)
 
 void ServerNode::on_audio_block(std::shared_ptr<AudioBlock> block)
 {
+    std::cout << "Sending audio block" << std::endl;
     std::ostringstream http_message;
-
-    http_message << "POST /audio HTTP/1.1\r\n";
-    http_message << "Content-Type: audio/pcm\r\n";
-    http_message << "Content-Length: " + std::to_string(block->size) + "\r\n";
-    http_message << "\r\n";
-
     if (block->data && block->size > 0)
         http_message.write(reinterpret_cast<const char *>(block->data), block->size);
 
@@ -66,20 +61,48 @@ void ServerNode::on_audio_block(std::shared_ptr<AudioBlock> block)
     write(this->client_fd, message.c_str(), message.size());
 }
 
-void ServerNode::on_queue_change(std::vector<std::string> queue)
+void ServerNode::on_queue_change(std::string queue)
 {
+    std::cout << "Sending queue change" << std::endl;
+    std::ostringstream http_message;
+
+    http_message << queue;
+
+    std::string message = http_message.str();
+    write(this->client_fd, message.c_str(), message.size());
 }
 
 void ServerNode::start_listening()
 {
+    std::cout << "Client connected" << std::endl;
     llhttp_init(&this->parser, HTTP_REQUEST, &this->settings);
+
+    this->queue->lock_read();
+    std::string queue_info = this->queue->get_queue().queue_info();
+    this->queue->unlock_read();
+
+    this->on_queue_change(queue_info);
 
     char buffer[4096];
     int bytes_read = 0;
-    while ((bytes_read = read(this->client_fd, buffer, 4096)) > 0)
+    while (true)
     {
+        bytes_read = read(this->client_fd, buffer, sizeof(buffer));
+        if (bytes_read == -1)
+        {
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+                continue;
+            else
+            {
+                std::cerr << "Error reading from socket" << std::endl;
+                break;
+            }
+        }
+        else if (bytes_read == 0)
+            break;
         llhttp_execute(&this->parser, buffer, bytes_read);
     }
 
     close(this->client_fd);
+    std::cout << "Client disconnected" << std::endl;
 }

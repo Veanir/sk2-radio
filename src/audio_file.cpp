@@ -53,6 +53,14 @@ std::shared_ptr<AudioBlock> AudioFile::fetchNextAudioBlock()
         return NULL;
 }
 
+std::shared_ptr<AudioBlock> AudioFile::fetchCurrentAudioBlock()
+{
+    if (this->position < this->blocks_count)
+        return this->m_blocks[this->position];
+    else
+        return NULL;
+}
+
 AudioBlock::AudioBlock(unsigned char *data, size_t size, double duration)
 {
     this->data = data;

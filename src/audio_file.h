@@ -23,7 +23,11 @@ public:
     ~AudioFile();
     std::vector<std::shared_ptr<AudioBlock>> fetchAudioBlocks();
     std::shared_ptr<AudioBlock> fetchNextAudioBlock();
+    std::shared_ptr<AudioBlock> fetchCurrentAudioBlock();
     std::string get_filename() { return this->m_filename; }
+    long get_sampling_rate() { return this->m_rate; }
+    int get_channels() { return this->m_channels; }
+    int get_encoding() { return this->m_encoding; }
     void rewind();
 
 private:

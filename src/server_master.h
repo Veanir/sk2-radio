@@ -48,6 +48,7 @@ ServerMaster::ServerMaster(int port, std::shared_ptr<AudioQueueRwLock> queue) : 
 
 void ServerMaster::start_listening()
 {
+    std::cout << "Listening on port " << ntohs(this->addr.sin_port) << std::endl;
     while (true)
     {
         sockaddr_in client_addr;
@@ -63,7 +64,12 @@ void ServerMaster::start_listening()
 
         std::cout << "Accepted connection from " << inet_ntoa(client_addr.sin_addr) << ":" << ntohs(client_addr.sin_port) << std::endl;
 
-        std::unique_ptr<ServerNode> node = std::unique_ptr<ServerNode>(new ServerNode(client_fd, this->queue));
+        std::shared_ptr<ServerNode> node = std::shared_ptr<ServerNode>(new ServerNode(client_fd, this->queue));
+        std::weak_ptr<ServerNode> weak_node = node;
+
+        this->queue->lock_write();
+        this->queue->get_queue().subscribe(node);
+        this->queue->unlock_write();
 
         std::thread([node = std::move(node)]() mutable
                     { node->start_listening(); })

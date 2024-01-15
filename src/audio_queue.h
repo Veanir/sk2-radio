@@ -13,7 +13,7 @@ class IAudioListener
 {
 public:
     virtual void on_audio_block(std::shared_ptr<AudioBlock> block) = 0;
-    virtual void on_queue_change(std::vector<std::string>) = 0;
+    virtual void on_queue_change(std::string queue) = 0;
 };
 
 class AudioQueue
@@ -26,13 +26,13 @@ public:
     void update();
 
     void update_listeners_audio(std::shared_ptr<AudioBlock> block);
-    void update_listeners_queue(std::vector<std::string> queue);
+    void update_listeners_queue(std::string queue);
+    std::string queue_info();
 
 private:
     std::chrono::time_point<std::chrono::high_resolution_clock> audio_block_start_time;
     std::vector<std::shared_ptr<AudioFile>> audio_files;
     std::vector<std::weak_ptr<IAudioListener>> listeners;
-    std::vector<std::string> get_queue();
 };
 
 class AudioQueueRwLock
