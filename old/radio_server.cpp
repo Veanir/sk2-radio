@@ -21,12 +21,6 @@ int main()
     queue->get_queue().push(std::make_shared<AudioFile>(file));
     queue->unlock_write();
 
-    std::unique_ptr<ServerMaster> server = std::make_unique<ServerMaster>(8080, queue);
-
-    std::thread([server = std::move(server)]() mutable
-                { server->start_listening(); })
-        .detach();
-
     while (true)
     {
         queue->lock_write();
