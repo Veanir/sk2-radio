@@ -1,4 +1,7 @@
 #include "audio_file.h"
+#include <openssl/bio.h>
+#include <openssl/evp.h>
+#include <openssl/buffer.h>
 
 AudioFile::AudioFile(const char *filename)
 {
@@ -21,7 +24,7 @@ AudioFile::AudioFile(const char *filename)
         {
             size_t samples = done / (this->m_channels * mpg123_encsize(this->m_encoding));
             double duration = (double)samples / (double)this->m_rate;
-            this->m_blocks.push_back(std::shared_ptr<AudioBlock>(new AudioBlock(data, done, duration)));
+            this->m_blocks.push_back(std::shared_ptr<AudioBlock>(new AudioBlock(data, done, duration, this->m_rate)));
 
             this->blocks_count++;
         }
@@ -61,14 +64,45 @@ std::shared_ptr<AudioBlock> AudioFile::fetchCurrentAudioBlock()
         return NULL;
 }
 
-AudioBlock::AudioBlock(unsigned char *data, size_t size, double duration)
+AudioBlock::AudioBlock(unsigned char *data, size_t size, double duration, int sampling_rate)
 {
     this->data = data;
     this->size = size;
     this->duration = duration;
+    this->sampling_rate = sampling_rate;
 }
 
 AudioBlock::~AudioBlock()
 {
     delete[] this->data;
+}
+
+std::string AudioBlock::base64()
+{
+    BIO *bio, *b64;
+    BUF_MEM *bufferPtr;
+
+    b64 = BIO_new(BIO_f_base64());
+    bio = BIO_new(BIO_s_mem());
+    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+    bio = BIO_push(b64, bio);
+
+    BIO_write(bio, this->data, this->size);
+    BIO_flush(bio);
+    BIO_get_mem_ptr(bio, &bufferPtr);
+
+    std::string encoded(bufferPtr->data, bufferPtr->length);
+    BIO_free_all(bio);
+
+    return encoded;
+}
+
+std::vector<unsigned char> AudioBlock::data_vector()
+{
+    std::vector<unsigned char> data;
+    data.resize(this->size);
+    for (size_t i = 0; i < this->size; i++)
+        data[i] = this->data[i];
+
+    return data;
 }

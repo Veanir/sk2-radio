@@ -2,10 +2,13 @@
 #ifndef SERVER_THREAD_H
 #define SERVER_THREAD_H
 
+#include "audio/audio_queue.h"
+#include "audio/audio_file.h"
+
 #include "connection_utilities.hpp"
-#include "server_thread_interface.hpp"
 #include "websocket_server_interface.hpp"
 #include "websocket_server_thread.hpp"
+#include "server_thread_interface.hpp"
 #include "server.hpp"
 
 // networking
@@ -212,7 +215,7 @@ void ServerThread::start_handling()
             break;
         }
 
-        std::unique_ptr<WebsocketServerThread> websocketServerThread = std::make_unique<WebsocketServerThread>(std::move(this->connectionMetadata_), this->server_);
+        std::shared_ptr<WebsocketServerThread> websocketServerThread = std::make_shared<WebsocketServerThread>(std::move(this->connectionMetadata_), this->server_);
         this->server_.lock()->upgrade(std::move(websocketServerThread));
         break;
     }

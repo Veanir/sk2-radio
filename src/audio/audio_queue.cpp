@@ -7,6 +7,9 @@
 #include <mutex>
 #include <condition_variable>
 #include <string>
+
+#include <nlohmann/json.hpp>
+
 AudioQueue::AudioQueue()
 {
     this->audio_block_start_time = std::chrono::high_resolution_clock::now();
@@ -20,6 +23,7 @@ void AudioQueue::push(std::shared_ptr<AudioFile> file)
 void AudioQueue::subscribe(std::weak_ptr<IAudioListener> listener)
 {
     this->listeners.push_back(listener);
+    listener.lock()->on_queue_change(this->queue_info());
 }
 
 void AudioQueue::update()
@@ -60,58 +64,53 @@ void AudioQueue::update_listeners_audio(std::shared_ptr<AudioBlock> block)
     for (auto it = this->listeners.begin(); it != this->listeners.end();)
     {
         auto listener = it->lock();
-        if (listener)
-        {
-            listener->on_audio_block(block);
-            ++it;
-        }
-        else
+
+        if (listener == nullptr || listener->yeet())
         {
             it = this->listeners.erase(it);
+            continue;
         }
+        listener->on_audio_block(block);
+        ++it;
     }
 }
 
-void AudioQueue::update_listeners_queue(std::string queue)
+void AudioQueue::update_listeners_queue(nlohmann::json queue)
 {
     for (auto it = this->listeners.begin(); it != this->listeners.end();)
     {
         auto listener = it->lock();
-        if (listener)
-        {
-            listener->on_queue_change(queue);
-            ++it;
-        }
-        else
+
+        if (listener == nullptr || listener->yeet())
         {
             it = this->listeners.erase(it);
+            continue;
         }
+
+        listener->on_queue_change(queue);
+        ++it;
     }
 }
 
-std::string AudioQueue::queue_info()
+nlohmann::json AudioQueue::queue_info()
 {
-    std::string queue;
-    queue += "{ \"queue\": [";
-
-    for (auto it = this->audio_files.begin(); it != this->audio_files.end(); ++it)
+    nlohmann::json json;
+    json["metadata"]["queue"]["size"] = this->audio_files.size();
+    for (int i = 0; i < this->audio_files.size(); i++)
     {
-        queue += "\"";
-        queue += (*it)->get_filename();
-        queue += "\"";
-        if (it != this->audio_files.end() - 1)
-            queue += ", ";
+        json["metadata"]["queue"]["files"][i] = this->audio_files[i]->get_filename();
     }
-    queue += "], \"current\": { \"filename\": \"";
-    queue += this->audio_files[0]->get_filename();
-    queue += "\", \"sampling_rate\" : ";
-    queue += std::to_string(this->audio_files[0]->get_sampling_rate());
-    queue += ", \"channels\" : ";
-    queue += std::to_string(this->audio_files[0]->get_channels());
-    queue += ", \"encoding\" : ";
-    queue += std::to_string(this->audio_files[0]->get_encoding());
-    queue += " } }";
-    return queue;
+
+    if (this->audio_files.size() == 0)
+        return json;
+
+    auto file = this->audio_files[0];
+    json["metadata"]["current"]["filename"] = file->get_filename();
+    json["metadata"]["current"]["sampling_rate"] = file->get_sampling_rate();
+    json["metadata"]["current"]["channels"] = file->get_channels();
+    json["metadata"]["current"]["encoding"] = file->get_encoding();
+
+    return json;
 }
 
 void AudioQueueRwLock::lock_write()

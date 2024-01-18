@@ -9,11 +9,16 @@
 #include <condition_variable>
 #include <string.h>
 
-class IAudioListener
+#include <nlohmann/json.hpp>
+
+#include "../server_thread_interface.hpp"
+
+class IAudioListener : public Object
 {
 public:
     virtual void on_audio_block(std::shared_ptr<AudioBlock> block) = 0;
-    virtual void on_queue_change(std::string queue) = 0;
+    virtual void on_queue_change(nlohmann::json queue) = 0;
+    virtual bool yeet() = 0;
 };
 
 class AudioQueue
@@ -26,8 +31,8 @@ public:
     void update();
 
     void update_listeners_audio(std::shared_ptr<AudioBlock> block);
-    void update_listeners_queue(std::string queue);
-    std::string queue_info();
+    void update_listeners_queue(nlohmann::json queue);
+    nlohmann::json queue_info();
 
 private:
     std::chrono::time_point<std::chrono::high_resolution_clock> audio_block_start_time;

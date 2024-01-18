@@ -4,6 +4,9 @@
 
 #define DEBUG
 
+#include "audio/audio_queue.h"
+#include "audio/audio_file.h"
+
 #include "connection_utilities.hpp"
 #include "server_thread_interface.hpp"
 #include "websocket_server_interface.hpp"
@@ -58,35 +61,34 @@ protected:
 class Server : private ServerSocket, public BaseWebsocketServer
 {
 public:
-    Server(int port);
+    Server(int port, std::shared_ptr<AudioQueueRwLock> queue) : ServerSocket(port), queue_(queue)
+    {
+        if (listen(this->socketRAII_.get(), 10) < 0)
+            throw std::runtime_error("Could not listen on socket");
+    };
 
-    static std::shared_ptr<Server> Create(int port);
+    static std::shared_ptr<Server> Create(int port, std::shared_ptr<AudioQueueRwLock> queue);
 
     std::unique_ptr<ClientConnectionMetadata> checkSocket();
 
     void start_listening();
 
-    void upgrade(std::unique_ptr<BaseServerThread> thread) override;
+    void upgrade(std::shared_ptr<WebsocketServerThread> thread) override;
 
     using ServerSocket::address;
     using ServerSocket::socketRAII_;
 
 private:
-    std::vector<std::unique_ptr<BaseServerThread>> threads_;
+    std::vector<std::shared_ptr<BaseServerThread>> threads_;
     std::weak_ptr<Server> self_;
+    std::shared_ptr<AudioQueueRwLock> queue_;
 };
 
-Server::Server(int port) : ServerSocket(port)
-{
-    if (listen(this->socketRAII_.get(), 10) < 0)
-        throw std::runtime_error("Could not listen on socket");
-}
-
-std::shared_ptr<Server> Server::Create(int port)
+std::shared_ptr<Server> Server::Create(int port, std::shared_ptr<AudioQueueRwLock> queue)
 {
     try
     {
-        std::shared_ptr<Server> server = std::shared_ptr<Server>(new Server(port));
+        std::shared_ptr<Server> server = std::shared_ptr<Server>(new Server(port, queue));
         server->self_ = server;
         return server;
     }
@@ -132,7 +134,7 @@ void Server::start_listening()
             std::cout << "Connection accepted from " << inet_ntoa(client->address.sin_addr) << ":" << ntohs(client->address.sin_port) << '\n';
 #endif
 
-            this->threads_.emplace_back(std::make_unique<ServerThread>(std::move(client), this->self_));
+            this->threads_.emplace_back(std::make_shared<ServerThread>(std::move(client), this->self_));
         }
         catch (const std::exception &e)
         {
@@ -141,9 +143,12 @@ void Server::start_listening()
     }
 }
 
-void Server::upgrade(std::unique_ptr<BaseServerThread> thread)
+void Server::upgrade(std::shared_ptr<WebsocketServerThread> thread)
 {
-    this->threads_.emplace_back(std::move(thread));
+    this->queue_->lock_write();
+    this->queue_->get_queue().subscribe(thread);
+    this->threads_.emplace_back(thread);
+    this->queue_->unlock_write();
 }
 
 #endif // !SERVER_H

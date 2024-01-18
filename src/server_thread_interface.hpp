@@ -2,7 +2,13 @@
 #ifndef SERVER_THREAD_INTERFACE_H
 #define SERVER_THREAD_INTERFACE_H
 
-class BaseServerThread
+class Object
+{
+public:
+    virtual bool yeet() = 0;
+};
+
+class BaseServerThread : public Object
 {
 public:
     virtual void start_handling() = 0;

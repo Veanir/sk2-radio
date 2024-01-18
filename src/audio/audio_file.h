@@ -8,12 +8,16 @@
 class AudioBlock
 {
 public:
-    AudioBlock(unsigned char *data, size_t size, double duration);
+    AudioBlock(unsigned char *data, size_t size, double duration, int sampling_rate);
     ~AudioBlock();
 
     unsigned char *data;
     size_t size;
     double duration;
+    int sampling_rate;
+
+    std::string base64();
+    std::vector<unsigned char> data_vector();
 };
 
 class AudioFile
