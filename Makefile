@@ -1,14 +1,14 @@
 # Libraries
-LIBS = -lmpg123 -L./llhttp/build -l:libllhttp.a
+LIBS = -lmpg123 -lcrypto -lssl
 
 # Source files
-SRCS = src/audio_queue.cpp src/audio_file.cpp src/radio_server.cpp
+SRCS = src/radio.cpp src/audio/audio_file.cpp src/audio/audio_queue.cpp
 
 # Object files
-OBJS = $(SRCS:src/%.cpp=obj/%.o)
+objs = $(SRCS:.cpp=.o)
 
 # Executable name
-EXEC = bin/radio_server
+EXEC = radio
 
 # Directories
 OBJDIR = obj
