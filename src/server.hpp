@@ -134,7 +134,7 @@ void Server::start_listening()
             std::cout << "Connection accepted from " << inet_ntoa(client->address.sin_addr) << ":" << ntohs(client->address.sin_port) << '\n';
 #endif
 
-            this->threads_.emplace_back(std::make_shared<ServerThread>(std::move(client), this->self_));
+            this->threads_.emplace_back(std::make_shared<ServerThread>(std::move(client), this->self_, this->queue_));
         }
         catch (const std::exception &e)
         {

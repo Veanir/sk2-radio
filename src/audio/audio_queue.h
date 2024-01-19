@@ -32,9 +32,13 @@ public:
 
     void update_listeners_audio(std::shared_ptr<AudioBlock> block);
     void update_listeners_queue(nlohmann::json queue);
+    void skip_audio_file(int index);
+    void swap_audio_files(int index1, int index2);
     nlohmann::json queue_info();
+    void cplay();
 
 private:
+    bool is_playing = false;
     std::chrono::time_point<std::chrono::high_resolution_clock> audio_block_start_time;
     std::vector<std::shared_ptr<AudioFile>> audio_files;
     std::vector<std::weak_ptr<IAudioListener>> listeners;

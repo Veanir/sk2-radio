@@ -18,6 +18,7 @@ AudioQueue::AudioQueue()
 void AudioQueue::push(std::shared_ptr<AudioFile> file)
 {
     this->audio_files.push_back(file);
+    this->update_listeners_queue(this->queue_info());
 }
 
 void AudioQueue::subscribe(std::weak_ptr<IAudioListener> listener)
@@ -26,8 +27,19 @@ void AudioQueue::subscribe(std::weak_ptr<IAudioListener> listener)
     listener.lock()->on_queue_change(this->queue_info());
 }
 
+void AudioQueue::cplay()
+{
+    this->is_playing = !this->is_playing;
+    if (this->is_playing)
+        this->audio_block_start_time = std::chrono::high_resolution_clock::now();
+
+    this->update_listeners_queue(this->queue_info());
+}
+
 void AudioQueue::update()
 {
+    if (!this->is_playing)
+        return;
     auto now = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - this->audio_block_start_time).count();
     if (this->audio_files.size() == 0)
@@ -95,7 +107,9 @@ void AudioQueue::update_listeners_queue(nlohmann::json queue)
 nlohmann::json AudioQueue::queue_info()
 {
     nlohmann::json json;
+    json["metadata"]["is_playing"] = this->is_playing;
     json["metadata"]["queue"]["size"] = this->audio_files.size();
+    json["metadata"]["queue"]["files"] = nlohmann::json::array();
     for (int i = 0; i < this->audio_files.size(); i++)
     {
         json["metadata"]["queue"]["files"][i] = this->audio_files[i]->get_filename();
@@ -148,4 +162,25 @@ void AudioQueueRwLock::unlock_read()
 AudioQueue &AudioQueueRwLock::get_queue()
 {
     return this->queue;
+}
+
+void AudioQueue::skip_audio_file(int index)
+{
+    if (index < 0 || index >= this->audio_files.size())
+        return;
+
+    this->audio_files.erase(this->audio_files.begin() + index);
+    this->update_listeners_queue(this->queue_info());
+}
+
+void AudioQueue::swap_audio_files(int index1, int index2)
+{
+    if (index1 < 0 || index1 >= this->audio_files.size())
+        return;
+    if (index2 < 0 || index2 >= this->audio_files.size())
+        return;
+    if (index1 == index2)
+        return;
+    std::swap(this->audio_files[index1], this->audio_files[index2]);
+    this->update_listeners_queue(this->queue_info());
 }

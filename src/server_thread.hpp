@@ -104,7 +104,7 @@ private:
 class ServerThread : public BaseServerThread
 {
 public:
-    ServerThread(std::unique_ptr<ClientConnectionMetadata> connectionMetadata, std::weak_ptr<BaseWebsocketServer> server) : connectionMetadata_(std::move(connectionMetadata)), server_(server)
+    ServerThread(std::unique_ptr<ClientConnectionMetadata> connectionMetadata, std::weak_ptr<BaseWebsocketServer> server, std::weak_ptr<AudioQueueRwLock> queue) : connectionMetadata_(std::move(connectionMetadata)), server_(server), queue_(queue)
     {
         std::thread thread(&ServerThread::start_handling, this);
         thread.detach();
@@ -121,6 +121,7 @@ private:
     bool yeet_flag = false;
     std::unique_ptr<ClientConnectionMetadata> connectionMetadata_;
     std::weak_ptr<BaseWebsocketServer> server_;
+    std::weak_ptr<AudioQueueRwLock> queue_;
 
     bool is_upgrade_request(HttpParsed &httpParsed)
     {
@@ -187,7 +188,7 @@ std::string buildUpgradeResponse(const std::string &websocketAcceptKey)
 void ServerThread::start_handling()
 {
     char buffer[4096] = {0};
-    while (true)
+    while (this->yeet_flag == false)
     {
         memset(buffer, 0, sizeof(buffer));
         int valread = read(this->connectionMetadata_->get(), buffer, sizeof(buffer));
@@ -215,10 +216,12 @@ void ServerThread::start_handling()
             break;
         }
 
-        std::shared_ptr<WebsocketServerThread> websocketServerThread = std::make_shared<WebsocketServerThread>(std::move(this->connectionMetadata_), this->server_);
+        std::shared_ptr<WebsocketServerThread> websocketServerThread = std::make_shared<WebsocketServerThread>(std::move(this->connectionMetadata_), this->server_, this->queue_);
         this->server_.lock()->upgrade(std::move(websocketServerThread));
         break;
     }
+
+    this->yeet_flag = true;
 }
 
 #endif // !SERVER_THREAD_H
