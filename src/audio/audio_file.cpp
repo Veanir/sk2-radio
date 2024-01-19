@@ -106,3 +106,10 @@ std::vector<unsigned char> AudioBlock::data_vector()
 
     return data;
 }
+
+void AudioFile::rewind()
+{
+    if (this->m_blocks.size() == 0)
+        return;
+    this->position = 0;
+}

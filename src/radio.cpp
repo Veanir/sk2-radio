@@ -27,10 +27,18 @@ int main()
 
     std::shared_ptr<AudioFile> file = std::make_shared<AudioFile>("Captain.mp3");
     std::shared_ptr<AudioFile> file2 = std::make_shared<AudioFile>("Guy.mp3");
+    std::shared_ptr<AudioFile> file3 = std::make_shared<AudioFile>("Africa.mp3");
+    std::shared_ptr<AudioFile> file4 = std::make_shared<AudioFile>("Rainbow.mp3");
+    std::shared_ptr<AudioFile> file5 = std::make_shared<AudioFile>("Rick.mp3");
+    std::shared_ptr<AudioFile> file6 = std::make_shared<AudioFile>("Take.mp3");
 
     queue->lock_write();
-    queue->get_queue().push(file2);
     queue->get_queue().push(file);
+    queue->get_queue().push(file2);
+    queue->get_queue().push(file3);
+    queue->get_queue().push(file4);
+    queue->get_queue().push(file5);
+    queue->get_queue().push(file6);
     queue->unlock_write();
 
     while (true)
@@ -41,4 +49,13 @@ int main()
     }
 
     return 0;
+}
+
+void AudioQueue::rewind()
+{
+    if (this->audio_files.size() == 0)
+        return;
+    auto file = this->audio_files[0];
+    file->rewind();
+    this->update_listeners_queue(this->queue_info());
 }

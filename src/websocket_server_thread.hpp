@@ -580,6 +580,13 @@ void WebsocketServerThread::process_payload(std::unique_ptr<std::pair<WebsocketO
                     this->queue_.lock()->get_queue().push(file);
                     this->queue_.lock()->unlock_write();
                 }
+
+                else if (json["command"] == "rewind")
+                {
+                    this->queue_.lock()->lock_write();
+                    this->queue_.lock()->get_queue().rewind();
+                    this->queue_.lock()->unlock_write();
+                }
             }
         }
         catch (const std::exception &e)

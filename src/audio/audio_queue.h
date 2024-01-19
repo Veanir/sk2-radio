@@ -36,6 +36,7 @@ public:
     void swap_audio_files(int index1, int index2);
     nlohmann::json queue_info();
     void cplay();
+    void rewind();
 
 private:
     bool is_playing = false;
